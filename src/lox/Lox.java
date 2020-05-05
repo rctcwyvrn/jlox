@@ -1,7 +1,6 @@
 package lox;
 
-import lox.parser.Lexer;
-import lox.parser.Token;
+import lox.parser.*;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -27,9 +26,12 @@ public class Lox {
 
     private static void run(String script) {
         List<Token> tokens = Lexer.parseTokens(script);
-        for(Token token: tokens){
-            System.out.println(token);
-        }
+        if(hadError) return;
+
+        Parser parser = new Parser(tokens);
+        Expr expression = parser.parse();
+        if(hadError) return;
+        System.out.println(new ASTPrinter().print(expression));
     }
 
     private static void runPrompt() throws IOException {
@@ -54,6 +56,14 @@ public class Lox {
 
     public static void error(int line, String message){
         report(line, "", message);
+    }
+
+    public static void error(Token token, String message){
+        if (token.getType() == TokenType.EOF) {
+            report(token.getLine(), " at end of file", message);
+        } else {
+            report(token.getLine(), " at '" + token.getLexeme() + "'", message);
+        }
     }
 
     private static void report(int line, String where, String message){

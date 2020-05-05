@@ -42,6 +42,7 @@ public class Lexer {
         while (it.hasNext()){
             parseNextToken(tokens, it);
         }
+        tokens.add(new Token(EOF, "", null, it.line()));
         return tokens;
     }
 

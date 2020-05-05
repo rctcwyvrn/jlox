@@ -22,4 +22,20 @@ public class Token {
                 ", line=" + line +
                 '}';
     }
+
+    public String getLexeme(){
+        return lexeme;
+    }
+
+    public TokenType getType(){
+        return type;
+    }
+
+    public Object getLiteral(){
+        return literal;
+    }
+
+    public int getLine() {
+        return line;
+    }
 }
