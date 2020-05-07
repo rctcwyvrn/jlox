@@ -1,5 +1,7 @@
 package lox;
 
+import lox.exception.LoxRuntimeException;
+import lox.execution.InterpreterVisitor;
 import lox.parser.*;
 
 import java.io.BufferedReader;
@@ -12,6 +14,8 @@ import java.util.List;
 
 public class Lox {
     private static boolean hadError = false;
+    private static boolean hadRuntimeError = false;
+    private static final InterpreterVisitor interpreter = new InterpreterVisitor();
 
     public static void main(String[] args) throws IOException {
         if(args.length >= 2){
@@ -24,6 +28,11 @@ public class Lox {
         }
     }
 
+    private static void reset(){
+        hadError = false;
+        hadRuntimeError = false;
+    }
+
     private static void run(String script) {
         List<Token> tokens = Lexer.parseTokens(script);
         if(hadError) return;
@@ -31,7 +40,7 @@ public class Lox {
         Parser parser = new Parser(tokens);
         Expr expression = parser.parse();
         if(hadError) return;
-        System.out.println(new ASTPrinter().print(expression));
+        interpreter.interpret(expression);
     }
 
     private static void runPrompt() throws IOException {
@@ -41,7 +50,7 @@ public class Lox {
         while(true){
             System.out.print("> ");
             run(reader.readLine());
-            hadError = false;
+            reset();
         }
     }
 
@@ -50,7 +59,11 @@ public class Lox {
         run(new String(script, Charset.defaultCharset()));
 
         if(hadError){
-            System.exit(1);
+            System.exit(65);
+        }
+
+        if(hadRuntimeError){
+            System.exit(70);
         }
     }
 
@@ -66,8 +79,14 @@ public class Lox {
         }
     }
 
+    public static void runtimeError(LoxRuntimeException error){
+        System.err.println(error.getMessage() +
+                "\n\tat [line " + error.getToken().getLine() + "]\n");
+        hadRuntimeError = true;
+    }
+
     private static void report(int line, String where, String message){
-        System.err.println("[line: " + line + "] | Error " + where + ": " + message);
+        System.err.println("[line: " + line + "] | Error " + where + ": " + message + "\n");
         hadError = true;
     }
 }
