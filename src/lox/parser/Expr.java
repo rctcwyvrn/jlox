@@ -1,14 +1,30 @@
 package lox.parser;
 
-public abstract class Expr {
+public abstract class Expr implements ASTNode{
     public interface Visitor<R>{
         R visitBinaryExpr(Binary expr);
         R visitGroupingExpr(Grouping expr);
         R visitLiteralExpr(Literal expr);
         R visitUnaryExpr(Unary expr);
+        R visitVarExpr(Var expr);
+        R visitAssignExpr(Assign expr);
     }
 
     public abstract <R> R accept(Visitor<R> visitor);
+
+    public static class Assign extends Expr {
+        Assign(Token name,Expr value) {
+            this.name=name;
+            this.value=value;
+        }
+
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitAssignExpr(this);
+        }
+        public final Token name;
+        public final Expr value;
+    }
 
     public static class Binary extends Expr {
         Binary(Expr left,Token operator,Expr right) {
@@ -62,5 +78,17 @@ public abstract class Expr {
         }
         public final Token operator;
         public final Expr right;
+    }
+
+    public static class Var extends Expr {
+        Var(Token name) {
+            this.name=name;
+        }
+
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitVarExpr(this);
+        }
+        public final Token name;
     }
 }

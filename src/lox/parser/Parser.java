@@ -3,19 +3,39 @@ package lox.parser;
 import lox.Lox;
 import lox.exception.ParseException;
 
+import java.util.ArrayList;
 import java.util.List;
 
 // Formal grammar rules
 /*
-    expression     → equality ;
+    program     → declaration* EOF ;
+
+    declaration → varDecl
+                | statement ;
+
+    varDecl → "var" IDENTIFIER ( "=" expression )? ";" ;
+
+    statement   → exprStmt
+                | printStmt
+                | block ;
+
+    exprStmt  → expression ";" ;
+    printStmt → "print" expression ";" ;
+    block     → "{" declaration* "}" ;
+
+    expression → assignment ;
+    assignment → IDENTIFIER "=" equality
+               | equality ;
     equality       → comparison ( ( "!=" | "==" ) comparison )* ;
     comparison     → addition ( ( ">" | ">=" | "<" | "<=" ) addition )* ;
     addition       → multiplication ( ( "-" | "+" ) multiplication )* ;
     multiplication → unary ( ( "/" | "*" ) unary )* ;
     unary          → ( "!" | "-" ) unary
                    | primary ;
-    primary        → NUMBER | STRING | "false" | "true" | "nil"
-                   | "(" expression ")" ;
+    primary → "true" | "false" | "nil"
+        | NUMBER | STRING
+        | "(" expression ")"
+        | IDENTIFIER ;
  */
 
 /**
@@ -27,14 +47,6 @@ public class Parser {
 
     public Parser(List<Token> tokens) {
         this.tokens = tokens;
-    }
-
-    public Expr parse(){
-        try{
-            return expression();
-        } catch(ParseException e){
-            return null;
-        }
     }
 
     private boolean isAtEnd(){
@@ -107,8 +119,96 @@ public class Parser {
         }
     }
 
+    public List<Stmt> parse(){
+        List<Stmt> statements = new ArrayList<>();
+        while(!isAtEnd()){
+            statements.add(declaration());
+        }
+        return statements;
+    }
+
+    public ASTNode parseREPL(){
+        Stmt statement = declaration();
+        if(statement == null){
+            current = 0;
+            return expression();
+        } else {
+            return statement;
+        }
+    }
+
+    private Stmt declaration(){
+        try{
+            if(match(TokenType.VAR)){
+                return varDeclaration();
+            } else {
+                return statement();
+            }
+        } catch (ParseException e){
+            synchronize();
+            return null;
+        }
+    }
+
+    private Stmt varDeclaration() {
+        Token name = consume(TokenType.IDENTIFIER, "Expected variable name after keyword 'var'");
+
+        Expr init = null;
+        if(match(TokenType.EQUAL)){
+            init = expression();
+        }
+        consume(TokenType.SEMICOLON, "Expected ';' after variable declaration");
+        return new Stmt.Var(name, init);
+    }
+
+    private Stmt statement(){
+        if(match(TokenType.PRINT)){
+            return printStatement();
+        } else if (match(TokenType.LEFT_BRACE)) {
+            return blockStatement();
+        } else {
+            return expressionStatement();
+        }
+    }
+
+    private Stmt printStatement(){
+        Expr expression = expression();
+        consume(TokenType.SEMICOLON, "Expected ';' after expression.");
+        return new Stmt.Print(expression);
+    }
+
+    private Stmt expressionStatement() {
+        Expr expression = expression();
+        consume(TokenType.SEMICOLON, "Expected ';' after expression.");
+        return new Stmt.Expression(expression);
+    }
+
+    private Stmt blockStatement(){
+        List<Stmt> statements = new ArrayList<>();
+        while(!check(TokenType.RIGHT_BRACE) && !isAtEnd()){
+            statements.add(declaration());
+        }
+        consume(TokenType.RIGHT_BRACE, "Expected '}' after block.");
+        return new Stmt.Block(statements);
+    }
+
     private Expr expression(){
-        return equality();
+        return assignment();
+    }
+
+    private Expr assignment(){
+        Expr left = equality();
+        if(match(TokenType.EQUAL)){
+            if(!(left instanceof Expr.Var)){
+                error(previous(), "Invalid assignment target."); // We don't throw this exception because we don't need to resynchronize
+                return left; // just return the left-hand expression
+            }
+            Token name = ((Expr.Var) left).name;
+            Expr right = assignment();
+            return new Expr.Assign(name, right);
+        } else {
+            return left;
+        }
     }
 
     // equality       → comparison ( ( "!=" | "==" ) comparison )* ;
@@ -183,12 +283,14 @@ public class Parser {
             return new Expr.Literal(null);
         } else if(match(TokenType.NUMBER, TokenType.STRING)){
             return new Expr.Literal(previous().getLiteral());
-        } else if(match(TokenType.LEFT_PAREN)){
+        } else if(match(TokenType.LEFT_PAREN)) {
             Expr expr = expression();
             consume(TokenType.RIGHT_PAREN, "Missing ')' after expression");
             return new Expr.Grouping(expr);
+        } else if(match(TokenType.IDENTIFIER)){
+            return new Expr.Var(previous());
         } else {
-            throw error(peek(), "Something has gone wrong with parsing!");
+            throw error(peek(), "Unrecognized value");
         }
     }
 }

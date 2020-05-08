@@ -1,15 +1,6 @@
 var language = "lox";
-// this is a comment
-(( )){} // grouping stuff
-!*+-/=<> <= == // operators
-123.456
-15
-"ice ice baby"
-"asdfasdf"
-/* lallala
-this
-is
-a
-comment
-fug*/
-12.
+var other;
+print("holy shit my " + language + " interpreter works!~");
+language = other = "eupraxia";
+print("holy shit my " + language + " interpreter works!~");
+print("I hope that my new language satisfies " + other);

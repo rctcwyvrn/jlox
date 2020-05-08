@@ -3,14 +3,22 @@ package lox.execution;
 import lox.Lox;
 import lox.exception.LoxRuntimeException;
 import lox.parser.Expr;
+import lox.parser.Stmt;
 import lox.parser.Token;
 
-public class InterpreterVisitor implements Expr.Visitor<Object>{
+import java.util.List;
 
-    public void interpret(Expr expression){
+/**
+ * Tree walk interpreter using the Visitor pattern
+ */
+public class InterpreterVisitor implements Expr.Visitor<Object>, Stmt.Visitor<Void>{
+    private Env env = new Env();
+
+    public void interpret(List<Stmt> program){
         try{
-            Object value = evaluate(expression);
-            System.out.println(stringify(value));
+            for(Stmt statement: program){
+                execute(statement);
+            }
         } catch (LoxRuntimeException e){
             Lox.runtimeError(e);
         }
@@ -31,7 +39,8 @@ public class InterpreterVisitor implements Expr.Visitor<Object>{
         }
     }
 
-    private Object evaluate(Expr expression){
+    public Void execute(Stmt statement) {return statement.accept(this);}
+    public Object evaluate(Expr expression){
         return expression.accept(this);
     }
 
@@ -138,5 +147,56 @@ public class InterpreterVisitor implements Expr.Visitor<Object>{
         }
 
         return null; // If we get here we somehow parsed something that definitely should not be a unary, into a unary
+    }
+
+    @Override
+    public Object visitVarExpr(Expr.Var expr) {
+        return env.get(expr.name);
+    }
+
+    @Override
+    public Object visitAssignExpr(Expr.Assign expr) {
+        Object val = evaluate(expr.value);
+        env.update(expr.name, val);
+        return val;
+    }
+
+    @Override
+    public Void visitExpressionStmt(Stmt.Expression stmt) {
+        evaluate(stmt.expression);
+        return null;
+    }
+
+    @Override
+    public Void visitPrintStmt(Stmt.Print stmt) {
+        Object toPrint = evaluate(stmt.expression);
+        System.out.println(stringify(toPrint));
+        return null;
+    }
+
+    @Override
+    public Void visitVarStmt(Stmt.Var stmt) {
+        if(stmt.init != null){
+            env.define(stmt.name, evaluate(stmt.init));
+        } else {
+            env.define(stmt.name, null);
+        }
+
+        return null;
+    }
+
+    @Override
+    public Void visitBlockStmt(Stmt.Block stmt) {
+        Env enclosing = this.env;
+        try {
+            this.env = new Env(env);
+            for(Stmt statement: stmt.statements){
+                execute(statement);
+            }
+        } finally {
+            this.env = enclosing;
+        }
+
+        return null;
     }
 }

@@ -1,6 +1,7 @@
 package lox;
 
 import lox.exception.LoxRuntimeException;
+import lox.exception.ParseException;
 import lox.execution.InterpreterVisitor;
 import lox.parser.*;
 
@@ -15,6 +16,7 @@ import java.util.List;
 public class Lox {
     private static boolean hadError = false;
     private static boolean hadRuntimeError = false;
+    private static boolean ignoreErrors = false;
     private static final InterpreterVisitor interpreter = new InterpreterVisitor();
 
     public static void main(String[] args) throws IOException {
@@ -38,19 +40,44 @@ public class Lox {
         if(hadError) return;
 
         Parser parser = new Parser(tokens);
-        Expr expression = parser.parse();
+        List<Stmt> program = parser.parse();
         if(hadError) return;
-        interpreter.interpret(expression);
+        interpreter.interpret(program);
     }
 
     private static void runPrompt() throws IOException {
+        ignoreErrors = true;
+
         InputStreamReader in = new InputStreamReader(System.in);
         BufferedReader reader = new BufferedReader(in);
 
         while(true){
-            System.out.print("> ");
-            run(reader.readLine());
-            reset();
+            try {
+                System.out.print("> ");
+                String input = reader.readLine();
+
+                List<Token> tokens = Lexer.parseTokens(input);
+                if (hadError) continue;
+
+                Parser parser = new Parser(tokens);
+                ASTNode node = parser.parseREPL();
+                if (node instanceof Expr) {
+                    Object res = interpreter.evaluate((Expr) node);
+                    System.out.println(res);
+                } else {
+                    interpreter.execute((Stmt) node);
+                }
+            } catch (Exception e) {
+                if(e instanceof LoxRuntimeException){
+                    Lox.runtimeError((LoxRuntimeException) e);
+                } else if(e instanceof ParseException){
+                    System.out.println("Exception while parsing statement, try again");
+                } else {
+                    e.printStackTrace();
+                }
+            } finally {
+                reset();
+            }
         }
     }
 
@@ -73,20 +100,20 @@ public class Lox {
 
     public static void error(Token token, String message){
         if (token.getType() == TokenType.EOF) {
-            report(token.getLine(), " at end of file", message);
+            report(token.getLine(), "at end of file", message);
         } else {
-            report(token.getLine(), " at '" + token.getLexeme() + "'", message);
+            report(token.getLine(), "at '" + token.getLexeme() + "'", message);
         }
     }
 
     public static void runtimeError(LoxRuntimeException error){
-        System.err.println(error.getMessage() +
+        System.err.println("Lox runtime exception: " + error.getMessage() +
                 "\n\tat [line " + error.getToken().getLine() + "]\n");
         hadRuntimeError = true;
     }
 
     private static void report(int line, String where, String message){
-        System.err.println("[line: " + line + "] | Error " + where + ": " + message + "\n");
+        if(!ignoreErrors) System.err.println("[line: " + line + "] | Error " + where + ": " + message + "\n");
         hadError = true;
     }
 }
