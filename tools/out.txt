@@ -1,0 +1,191 @@
+public static class Assign extends Expr {
+	Assign(Token name,Expr value) {
+		this.name=name;
+		this.value=value;
+	}
+
+	@Override
+	public <R> R accept(Visitor<R> visitor) {
+		return visitor.visitAssignExpr(this);
+	}
+	public final Token name;
+	public final Expr value;
+}
+
+public static class Binary extends Expr {
+	Binary(Expr left,Token operator,Expr right) {
+		this.left=left;
+		this.operator=operator;
+		this.right=right;
+	}
+
+	@Override
+	public <R> R accept(Visitor<R> visitor) {
+		return visitor.visitBinaryExpr(this);
+	}
+	public final Expr left;
+	public final Token operator;
+	public final Expr right;
+}
+
+public static class Grouping extends Expr {
+	Grouping(Expr expression) {
+		this.expression=expression;
+	}
+
+	@Override
+	public <R> R accept(Visitor<R> visitor) {
+		return visitor.visitGroupingExpr(this);
+	}
+	public final Expr expression;
+}
+
+public static class Literal extends Expr {
+	Literal(Object value) {
+		this.value=value;
+	}
+
+	@Override
+	public <R> R accept(Visitor<R> visitor) {
+		return visitor.visitLiteralExpr(this);
+	}
+	public final Object value;
+}
+
+public static class Unary extends Expr {
+	Unary(Token operator,Expr right) {
+		this.operator=operator;
+		this.right=right;
+	}
+
+	@Override
+	public <R> R accept(Visitor<R> visitor) {
+		return visitor.visitUnaryExpr(this);
+	}
+	public final Token operator;
+	public final Expr right;
+}
+
+public static class Var extends Expr {
+	Var(Token name) {
+		this.name=name;
+	}
+
+	@Override
+	public <R> R accept(Visitor<R> visitor) {
+		return visitor.visitVarExpr(this);
+	}
+	public final Token name;
+}
+
+public static class LogicalBinary extends Expr {
+	LogicalBinary(Expr left,Token operator,Expr right) {
+		this.left=left;
+		this.operator=operator;
+		this.right=right;
+	}
+
+	@Override
+	public <R> R accept(Visitor<R> visitor) {
+		return visitor.visitLogicalBinaryExpr(this);
+	}
+	public final Expr left;
+	public final Token operator;
+	public final Expr right;
+}
+
+	R visitAssignExpr(Assign expr);
+	R visitBinaryExpr(Binary expr);
+	R visitGroupingExpr(Grouping expr);
+	R visitLiteralExpr(Literal expr);
+	R visitUnaryExpr(Unary expr);
+	R visitVarExpr(Var expr);
+	R visitLogicalBinaryExpr(LogicalBinary expr);
+
+public static class Expression extends Stmt {
+	Expression(Expr expression) {
+		this.expression=expression;
+	}
+
+	@Override
+	public <R> R accept(Visitor<R> visitor) {
+		return visitor.visitExpressionStmt(this);
+	}
+	public final Expr expression;
+}
+
+public static class Print extends Stmt {
+	Print(Expr expression) {
+		this.expression=expression;
+	}
+
+	@Override
+	public <R> R accept(Visitor<R> visitor) {
+		return visitor.visitPrintStmt(this);
+	}
+	public final Expr expression;
+}
+
+public static class Var extends Stmt {
+	Var(Token name,Expr init) {
+		this.name=name;
+		this.init=init;
+	}
+
+	@Override
+	public <R> R accept(Visitor<R> visitor) {
+		return visitor.visitVarStmt(this);
+	}
+	public final Token name;
+	public final Expr init;
+}
+
+public static class Block extends Stmt {
+	Block(List<Stmt> statements) {
+		this.statements=statements;
+	}
+
+	@Override
+	public <R> R accept(Visitor<R> visitor) {
+		return visitor.visitBlockStmt(this);
+	}
+	public final List<Stmt> statements;
+}
+
+public static class If extends Stmt {
+	If(Expr cond,Stmt thenCase,Stmt elseCase) {
+		this.cond=cond;
+		this.thenCase=thenCase;
+		this.elseCase=elseCase;
+	}
+
+	@Override
+	public <R> R accept(Visitor<R> visitor) {
+		return visitor.visitIfStmt(this);
+	}
+	public final Expr cond;
+	public final Stmt thenCase;
+	public final Stmt elseCase;
+}
+
+public static class While extends Stmt {
+	While(Expr cond,Stmt body) {
+		this.cond=cond;
+		this.body=body;
+	}
+
+	@Override
+	public <R> R accept(Visitor<R> visitor) {
+		return visitor.visitWhileStmt(this);
+	}
+	public final Expr cond;
+	public final Stmt body;
+}
+
+	R visitExpressionStmt(Expression stmt);
+	R visitPrintStmt(Print stmt);
+	R visitVarStmt(Var stmt);
+	R visitBlockStmt(Block stmt);
+	R visitIfStmt(If stmt);
+	R visitWhileStmt(While stmt);
+

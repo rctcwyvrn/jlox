@@ -1,0 +1,5 @@
+./tools/out.txt
+.idea/
+*.iml
+*.iws
+out/

@@ -4,14 +4,17 @@ expressions = [
     "Grouping,Expr:expression",
     "Literal,Object:value",
     "Unary,Token:operator,Expr:right",
-    "Var,Token:name" #Expression that returns the value stored in the variable with that name
+    "Var,Token:name", #Expression that returns the value stored in the variable with that name
+    "LogicalBinary,Expr:left,Token:operator,Expr:right"
 ]
 
 statements = [
     "Expression,Expr:expression",
     "Print,Expr:expression",
     "Var,Token:name,Expr:init",
-    "Block,List<Stmt>:statements"
+    "Block,List<Stmt>:statements",
+    "If,Expr:cond,Stmt:thenCase,Stmt:elseCase",
+    "While,Expr:cond,Stmt:body"
 ]
 
 stuff = [
@@ -20,7 +23,7 @@ stuff = [
 ]
 
 def visitorAbstractFn(type, base):
-    return "\tR visit"+type+base + "(" + type + " expr);\n"
+    return "\tR visit"+type+base + "(" + type + " " + base.lower() +");\n"
 
 for (base, expressions) in stuff:
     visitor = ""

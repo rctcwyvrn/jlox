@@ -8,6 +8,7 @@ public abstract class Expr implements ASTNode{
         R visitUnaryExpr(Unary expr);
         R visitVarExpr(Var expr);
         R visitAssignExpr(Assign expr);
+        R visitLogicalBinaryExpr(LogicalBinary expr);
     }
 
     public abstract <R> R accept(Visitor<R> visitor);
@@ -90,5 +91,21 @@ public abstract class Expr implements ASTNode{
             return visitor.visitVarExpr(this);
         }
         public final Token name;
+    }
+
+    public static class LogicalBinary extends Expr {
+        LogicalBinary(Expr left,Token operator,Expr right) {
+            this.left=left;
+            this.operator=operator;
+            this.right=right;
+        }
+
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitLogicalBinaryExpr(this);
+        }
+        public final Expr left;
+        public final Token operator;
+        public final Expr right;
     }
 }

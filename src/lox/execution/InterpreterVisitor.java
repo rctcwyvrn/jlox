@@ -5,6 +5,7 @@ import lox.exception.LoxRuntimeException;
 import lox.parser.Expr;
 import lox.parser.Stmt;
 import lox.parser.Token;
+import lox.parser.TokenType;
 
 import java.util.List;
 
@@ -162,6 +163,24 @@ public class InterpreterVisitor implements Expr.Visitor<Object>, Stmt.Visitor<Vo
     }
 
     @Override
+    public Object visitLogicalBinaryExpr(Expr.LogicalBinary expr) {
+        Object left = evaluate(expr.left);
+        if(expr.operator.getType() == TokenType.OR){
+            if(isTruthy(left)){
+                return true;
+            } else {
+                return isTruthy(evaluate(expr.right));
+            }
+        } else {
+            if(!isTruthy(left)){
+                return false;
+            } else {
+                return isTruthy(evaluate(expr.right));
+            }
+        }
+    }
+
+    @Override
     public Void visitExpressionStmt(Stmt.Expression stmt) {
         evaluate(stmt.expression);
         return null;
@@ -197,6 +216,25 @@ public class InterpreterVisitor implements Expr.Visitor<Object>, Stmt.Visitor<Vo
             this.env = enclosing;
         }
 
+        return null;
+    }
+
+    @Override
+    public Void visitIfStmt(Stmt.If stmt) {
+        Object cond = evaluate(stmt.condition);
+        if(isTruthy(cond)){
+            execute(stmt.thenCase);
+        } else if (stmt.elseCase != null){
+            execute(stmt.elseCase);
+        }
+        return null;
+    }
+
+    @Override
+    public Void visitWhileStmt(Stmt.While stmt) {
+        while(isTruthy(evaluate(stmt.cond))){
+            execute(stmt.body);
+        }
         return null;
     }
 }

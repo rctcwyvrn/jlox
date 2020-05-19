@@ -4,3 +4,17 @@ print("holy shit my " + language + " interpreter works!~");
 language = other = "eupraxia";
 print("holy shit my " + language + " interpreter works!~");
 print("I hope that my new language satisfies " + other);
+
+if("cat")
+print("meow");
+else
+print("not a cat :0");
+
+if("cat" and true)
+print("yay");
+
+if(true and nil)
+print("uhoh");
+else
+print("yay");
+
