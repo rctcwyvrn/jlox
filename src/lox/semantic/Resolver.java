@@ -8,17 +8,56 @@ import lox.parser.Token;
 
 import java.util.*;
 
-public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void>{
-    // Each scope is a map of variable names to a boolean representing initialized/not initialized
-    private final Stack<Map<String, Boolean>> scopes = new Stack<>();
+public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
+    public static class Destination {
+        public Integer depth;
+        public Integer index;
+
+        public Destination(Integer depth, Integer index) {
+            this.depth = depth;
+            this.index = index;
+        }
+    }
+
+    public static class Variable {
+        boolean defined;
+        int slot;
+
+        public Variable(boolean defined, int slot) {
+            this.defined = defined;
+            this.slot = slot;
+        }
+    }
+
+    public static class ResolutionLookup {
+        private final Map<Expr,Destination> resolutions;
+        private final Map<Token,Integer> definitionIndicies;
+
+        public ResolutionLookup(Map<Expr, Destination> resolutions, Map<Token, Integer> definitionIndicies) {
+            this.resolutions = resolutions;
+            this.definitionIndicies = definitionIndicies;
+        }
+
+        public Destination getResolutionDestination(Expr expr){
+            return resolutions.get(expr);
+        }
+
+        public Integer getDefinitionIndex(Token name){
+            return definitionIndicies.get(name);
+        }
+    }
+
+    private final Stack<Map<String, Variable>> scopes = new Stack<>();
     // Mirror of the scope stack, it contains a list of local variables used instead
     private final Stack<List<String>> variablesUsed = new Stack<>();
-    private final Map<Expr,Integer> resolutions = new HashMap<>();
+    private final Map<Expr,Destination> resolutions = new HashMap<>();
+    private final Map<Token,Integer> definitionIndicies = new HashMap<>();
+
     private FunctionType currentFunction =  FunctionType.NONE;
 
-    public Map<Expr,Integer> performResolve(List<Stmt> program){
+    public ResolutionLookup performResolve(List<Stmt> program){
         resolve(program);
-        return resolutions;
+        return new ResolutionLookup(resolutions, definitionIndicies);
     }
 
     private void beginScope(){
@@ -27,7 +66,7 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void>{
     }
 
     private void endScope(){
-        Map<String, Boolean> allDefined = scopes.pop();
+        Map<String, Variable> allDefined = scopes.pop();
         List<String> used = variablesUsed.pop();
         for(String defined: allDefined.keySet()){
             if(!used.contains(defined)){
@@ -38,18 +77,22 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void>{
 
     private void declare(Token name){
         if(scopes.isEmpty()) return; //global name
-        Map<String,Boolean> scope = scopes.peek();
+        Map<String,Variable> scope = scopes.peek();
 
         if(scope.containsKey(name.getLexeme())){
             Lox.error(name, "Variable with this name has already been declared in this scope.");
         }
-        scope.put(name.getLexeme(), false);
+        System.out.println("Declaring " + name);
+
+        definitionIndicies.put(name, scope.size());
+        scope.put(name.getLexeme(), new Variable(false, scope.size()));
     }
 
     private void define(Token name){
         if(scopes.isEmpty()) return; //global name
-        Map<String,Boolean> scope = scopes.peek();
-        scope.put(name.getLexeme(), true);
+        System.out.println("Defining " + name);
+        Map<String,Variable> scope = scopes.peek();
+        scope.get(name.getLexeme()).defined = true;
     }
 
     private void resolve(List<Stmt> statements){
@@ -69,7 +112,9 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void>{
     private void resolveLocal(Expr expr, Token name){
         for(int i = scopes.size() - 1; i >=0; i--){
             if(scopes.get(i).containsKey(name.getLexeme())){
-                resolutions.put(expr, scopes.size() - i - 1);
+                int depth = scopes.size() - i - 1;
+                int slot = scopes.get(i).get(name.getLexeme()).slot;
+                resolutions.put(expr, new Destination(depth, slot));
                 variablesUsed.get(i).add(name.getLexeme());
                 return;
             }
@@ -115,8 +160,10 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void>{
 
     @Override
     public Void visitVarExpr(Expr.Var expr) {
-        if(!scopes.isEmpty() && scopes.peek().get(expr.name.getLexeme()) == Boolean.FALSE){
-            Lox.error(expr.name, "Cannot read local cariable in its own initializer");
+        System.out.println(expr.name);
+        System.out.println(scopes.peek().get(expr.name.getLexeme()));
+        if(!scopes.isEmpty() && !scopes.peek().get(expr.name.getLexeme()).defined){
+            Lox.error(expr.name, "Cannot read local variable in its own initializer");
         }
         resolveLocal(expr, expr.name);
         return null;
@@ -157,6 +204,7 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void>{
 
     @Override
     public Void visitFunStmt(Stmt.Fun stmt) {
+        System.out.println("What " + stmt.name);
         declare(stmt.name);
         define(stmt.name);
         resolveFunction(stmt, FunctionType.FUNCTION);

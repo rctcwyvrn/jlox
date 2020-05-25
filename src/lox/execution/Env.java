@@ -2,27 +2,30 @@ package lox.execution;
 
 import lox.exception.LoxRuntimeException;
 import lox.parser.Token;
+import lox.semantic.Resolver;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class Env {
-    protected final Map<String, Object> values = new HashMap<>();
+    protected final Object[] values;
     private final Env enclosing;
 
-    public Env(){
+    // Only for GlobalEnv
+    protected Env(){
         enclosing = null;
+        values = null;
     }
 
     public Env(Env enclosing){
         this.enclosing = enclosing;
+        this.values = new Object[256];
     }
 
-    public void define(Token name, Object value){
-        if(values.containsKey(name.getLexeme())){
-            throw new LoxRuntimeException(name, "Variable '" + name.getLexeme() + "' already defined.");
-        }
-        values.put(name.getLexeme(), value);
+    public void define(int index, Object value){
+        values[index] =  value;
     }
 
     private Env ancestor(int distance){
@@ -33,11 +36,11 @@ public class Env {
         return env;
     }
 
-    public Object getAt(int dist, String name){
-        return ancestor(dist).values.get(name);
+    public Object getAt(Resolver.Destination dest){
+        return ancestor(dest.depth).values[dest.index];
     }
 
-    public void updateAt(int dist, Token name, Object val){
-        ancestor(dist).values.put(name.getLexeme(), val);
+    public void updateAt(Resolver.Destination dest, Object val){
+        ancestor(dest.depth).values[dest.index] = val;
     }
 }

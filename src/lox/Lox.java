@@ -45,7 +45,7 @@ public class Lox {
         if(hadError) return; // Stop if we have parsing errors
 
         Resolver resolver = new Resolver();
-        Map<Expr, Integer> resolutions = resolver.performResolve(program);
+        Resolver.ResolutionLookup resolutions = resolver.performResolve(program);
         if(hadError) return; // Stop if we have resolution errors
 
         InterpreterVisitor interpreter = new InterpreterVisitor(resolutions);

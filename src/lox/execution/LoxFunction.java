@@ -18,7 +18,8 @@ public class LoxFunction implements LoxCallable{
     public Object call(InterpreterVisitor interpreter, List<Object> args) {
         Env functionEnv = new Env(closure); // Create a new env to define the parameter names to the argument values, parent is the env present during function def
         for(int i=0; i<declaration.params.size(); i++){
-            functionEnv.define(declaration.params.get(i), args.get(i));
+            int index = interpreter.lookup.getDefinitionIndex(declaration.params.get(i));
+            functionEnv.define(index, args.get(i));
         }
 
         try {

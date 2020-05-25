@@ -7,6 +7,7 @@ import lox.parser.Expr;
 import lox.parser.Stmt;
 import lox.parser.Token;
 import lox.parser.TokenType;
+import lox.semantic.Resolver;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -20,16 +21,16 @@ import java.util.stream.Collectors;
 public class InterpreterVisitor implements Expr.Visitor<Object>, Stmt.Visitor<Void>{
     private final GlobalEnv globals = new GlobalEnv();
     private Env env = globals;
-    private Map<Expr, Integer> locals = new HashMap<>();
+    public Resolver.ResolutionLookup lookup;
     private boolean isREPL = true;
 
     public InterpreterVisitor(){
-        env.define(new Token(null, "clock", null, -1), new Clock());
+        globals.define(new Token(null, "clock", null, -1), new Clock());
     }
 
-    public InterpreterVisitor(Map<Expr, Integer> resolutions){
+    public InterpreterVisitor(Resolver.ResolutionLookup resolutions){
         this();
-        this.locals = resolutions;
+        this.lookup = resolutions;
         this.isREPL = false;
     }
 
@@ -105,9 +106,9 @@ public class InterpreterVisitor implements Expr.Visitor<Object>, Stmt.Visitor<Vo
     }
 
     private Object lookUpVariable(Token name, Expr expr){
-        Integer dist = locals.get(expr);
+        Resolver.Destination dist = lookup.getResolutionDestination(expr);
         if(dist != null){
-            return env.getAt(dist, name.getLexeme());
+            return env.getAt(dist);
 //        } else if(isREPL){
 //            return env.get(name);
         } else {
@@ -203,9 +204,9 @@ public class InterpreterVisitor implements Expr.Visitor<Object>, Stmt.Visitor<Vo
     @Override
     public Object visitAssignExpr(Expr.Assign expr) {
         Object val = evaluate(expr.value);
-        Integer dist = locals.get(expr);
-        if(dist != null){
-            env.updateAt(dist, expr.name, val);
+        Resolver.Destination dest = lookup.getResolutionDestination(expr);
+        if(dest != null){
+            env.updateAt(dest, val);
 //        } else if(isREPL) {
 //            env.update(expr.name, val);
         } else {
@@ -260,9 +261,9 @@ public class InterpreterVisitor implements Expr.Visitor<Object>, Stmt.Visitor<Vo
     @Override
     public Void visitVarStmt(Stmt.Var stmt) {
         if(stmt.init != null){
-            env.define(stmt.name, evaluate(stmt.init));
+            env.define(lookup.getDefinitionIndex(stmt.name), evaluate(stmt.init));
         } else {
-            env.define(stmt.name, null);
+            env.define(lookup.getDefinitionIndex(stmt.name), null);
         }
 
         return null;
@@ -271,7 +272,7 @@ public class InterpreterVisitor implements Expr.Visitor<Object>, Stmt.Visitor<Vo
     @Override
     public Void visitFunStmt(Stmt.Fun stmt) {
         LoxFunction fun = new LoxFunction(stmt, this.env); // Uses the env (all defined names) that are present when the function is defined
-        env.define(stmt.name, fun); // Add to the env
+        env.define(lookup.getDefinitionIndex(stmt.name), fun); // Add to the env
         return null;
     }
 
