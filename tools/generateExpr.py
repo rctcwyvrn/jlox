@@ -5,16 +5,19 @@ expressions = [
     "Literal,Object:value",
     "Unary,Token:operator,Expr:right",
     "Var,Token:name", #Expression that returns the value stored in the variable with that name
-    "LogicalBinary,Expr:left,Token:operator,Expr:right"
+    "LogicalBinary,Expr:left,Token:operator,Expr:right",
+    "Call,Expr:calle,Token:paren,List<Expr>:args"
 ]
 
 statements = [
+    "Var,Token:name,Expr:init",
+    "Fun,Token:name,List<Token>:params,List<Stmt>:body",
     "Expression,Expr:expression",
     "Print,Expr:expression",
-    "Var,Token:name,Expr:init",
     "Block,List<Stmt>:statements",
     "If,Expr:cond,Stmt:thenCase,Stmt:elseCase",
-    "While,Expr:cond,Stmt:body"
+    "While,Expr:cond,Stmt:body",
+    "Return,Token:ret,Expr:value"
 ]
 
 stuff = [

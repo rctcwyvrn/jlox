@@ -12,16 +12,22 @@ import java.util.List;
     program     → declaration* EOF ;
 
     declaration → varDecl
+                | funDecl
                 | statement ;
 
     varDecl → "var" IDENTIFIER ( "=" expression )? ";" ;
+
+    funDecl  → "fun" function ;
+    function → IDENTIFIER "(" parameters? ")" block ;
+    parameters → IDENTIFIER ( "," IDENTIFIER )* ;
 
     statement   → exprStmt
                 | printStmt
                 | ifStmt
                 | whileStmt
                 | forStmt
-                | block ;
+                | block
+                | returnStmt ;
 
     exprStmt  → expression ";" ;
     printStmt → "print" expression ";" ;
@@ -31,6 +37,7 @@ import java.util.List;
                       expression? ";"
                       expression? ")" statement ;
     block     → "{" declaration* "}" ;
+    returnStmt → "return" expression? ";" ;
 
     expression → assignment ;
     assignment → IDENTIFIER "=" assignment
@@ -41,8 +48,9 @@ import java.util.List;
     comparison     → addition ( ( ">" | ">=" | "<" | "<=" ) addition )* ;
     addition       → multiplication ( ( "-" | "+" ) multiplication )* ;
     multiplication → unary ( ( "/" | "*" ) unary )* ;
-    unary          → ( "!" | "-" ) unary
-                   | primary ;
+    unary → ( "!" | "-" ) unary | call ;
+    call  → primary ( "(" arguments? ")" )* ;
+    arguments → expression ( "," expression )* ;
     primary → "true" | "false" | "nil"
         | NUMBER | STRING
         | "(" expression ")"
@@ -151,8 +159,10 @@ public class Parser {
     // VARIABLE DECLARATIONS
     private Stmt declaration(){
         try{
-            if(match(TokenType.VAR)){
+            if(match(TokenType.VAR)) {
                 return varDeclaration();
+            } else if(match(TokenType.FUN)){
+                return function("function");
             } else {
                 return statement();
             }
@@ -173,6 +183,25 @@ public class Parser {
         return new Stmt.Var(name, init);
     }
 
+    private Stmt function(String kind){
+        Token name = consume(TokenType.IDENTIFIER, "Expected " + kind + " name.");
+        consume(TokenType.LEFT_PAREN, "Expected ( after " + kind + " name");
+        List<Token> params = new ArrayList<>();
+        if(!check(TokenType.RIGHT_PAREN)){
+            do {
+                if (params.size() >= 255) {
+                    error(peek(), "Cannot have more than 255 parameters.");
+                }
+
+                params.add(consume(TokenType.IDENTIFIER, "Expect parameter name."));
+            } while (match(TokenType.COMMA));
+        }
+        consume(TokenType.RIGHT_PAREN, "Expected ')' after parameters");
+        consume(TokenType.LEFT_BRACE, "Expected '{' before " + kind + " body");
+        List<Stmt> body = blockStatement().statements;
+        return new Stmt.Fun(name, params, body);
+    }
+
     // STATEMENTS
     private Stmt statement(){
         if(match(TokenType.PRINT)){
@@ -183,6 +212,8 @@ public class Parser {
             return whileStatement();
         } else if(match(TokenType.FOR)){
             return forStatement();
+        } else if (match(TokenType.RETURN)){
+            return returnStatement();
         } else if (match(TokenType.LEFT_BRACE)) {
             return blockStatement();
         } else {
@@ -238,10 +269,9 @@ public class Parser {
         Expr increment = null;
         if(!match(TokenType.SEMICOLON)){
             increment = expression();
-            consume(TokenType.SEMICOLON, "Expected ';' after for loop increment");
         }
 
-        consume(TokenType.SEMICOLON, "Expected ';' after for loop clauses");
+        consume(TokenType.RIGHT_PAREN, "Expected ')' after for loop clauses");
 
         Stmt body = statement();
         Stmt full = body;
@@ -262,13 +292,24 @@ public class Parser {
         return full;
     }
 
+    private Stmt returnStatement(){
+        Token keyword = previous();
+        if(match(TokenType.SEMICOLON)){
+            return new Stmt.Return(keyword, null);
+        } else {
+            Expr value = expression();
+            consume(TokenType.SEMICOLON, "Expected ';' after return value");
+            return new Stmt.Return(keyword, value);
+        }
+    }
+
     private Stmt expressionStatement() {
         Expr expression = expression();
         consume(TokenType.SEMICOLON, "Expected ';' after expression.");
         return new Stmt.Expression(expression);
     }
 
-    private Stmt blockStatement(){
+    private Stmt.Block blockStatement(){
         List<Stmt> statements = new ArrayList<>();
         while(!check(TokenType.RIGHT_BRACE) && !isAtEnd()){
             statements.add(declaration());
@@ -322,7 +363,6 @@ public class Parser {
         return res;
     }
 
-    // equality       → comparison ( ( "!=" | "==" ) comparison )* ;
     private Expr equality(){
         Expr expr = comparison();
 
@@ -337,7 +377,6 @@ public class Parser {
         return expr;
     }
 
-    //     comparison     → addition ( ( ">" | ">=" | "<" | "<=" ) addition )* ;
     private Expr comparison(){
         Expr expr = addition();
 
@@ -349,7 +388,6 @@ public class Parser {
         return expr;
     }
 
-    //     addition       → multiplication ( ( "-" | "+" ) multiplication )* ;
     private Expr addition(){
         Expr expr = multiplication();
 
@@ -361,7 +399,6 @@ public class Parser {
         return expr;
     }
 
-    //multiplication → unary ( ( "/" | "*" ) unary )* ;
     private Expr multiplication(){
         Expr expr = unary();
 
@@ -373,16 +410,58 @@ public class Parser {
         return expr;
     }
 
-    //     unary          → ( "!" | "-" ) unary
-    //                   | primary ;
-    //    primary        → NUMBER | STRING | "false" | "true" | "nil"
-    //                   | "(" expression ")" ;
     private Expr unary(){
         if(match(TokenType.BANG, TokenType.MINUS)) {
             return new Expr.Unary(previous(), unary());
         } else {
-            return primary();
+            return call();
         }
+    }
+
+    // My implementation, which will probably be too ugly/need to be rewritten later for objects anyway
+    // so I'm just gonna use the book implementation
+//    private Expr call(){
+//        Expr callee = primary();
+//        if(match(TokenType.LEFT_PAREN)){
+//            Token paren = previous();
+//            List<Expr> arguments = new ArrayList<>();
+//            arguments.add(expression());
+//            while(match(TokenType.COMMA)){
+//                arguments.add(expression());
+//            }
+//            consume(TokenType.RIGHT_PAREN, "Expected ')' after function arguments);
+//            return new Expr.Call(callee, paren, arguments);
+//        } else {
+//            return callee;
+//        }
+//    }
+
+    private Expr call(){
+        Expr expr = primary();
+
+        while(true){
+            if(match(TokenType.LEFT_PAREN)){
+                expr = finishCall(expr);
+            } else {
+                break;
+            }
+        }
+        return expr;
+    }
+
+    private Expr finishCall(Expr callee){
+        List<Expr> arguments = new ArrayList<>();
+        if(!check(TokenType.RIGHT_PAREN)){
+            arguments.add(expression());
+            while(match(TokenType.COMMA)){
+                arguments.add(expression());
+            }
+        }
+        if(arguments.size() >= 255){
+            error(peek(), "Function calls cannot have more than 255 arguments.");
+        }
+        Token paren = consume(TokenType.RIGHT_PAREN, "Expected ')' after function arguments.");
+        return new Expr.Call(callee, paren, arguments);
     }
 
     private Expr primary(){

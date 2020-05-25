@@ -1,4 +1,4 @@
-./tools/out.txt
+tools/out.txt
 .idea/
 *.iml
 *.iws

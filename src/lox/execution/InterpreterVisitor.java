@@ -2,18 +2,30 @@ package lox.execution;
 
 import lox.Lox;
 import lox.exception.LoxRuntimeException;
+import lox.execution.external.Clock;
 import lox.parser.Expr;
 import lox.parser.Stmt;
 import lox.parser.Token;
 import lox.parser.TokenType;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Tree walk interpreter using the Visitor pattern
  */
 public class InterpreterVisitor implements Expr.Visitor<Object>, Stmt.Visitor<Void>{
-    private Env env = new Env();
+    private final Env globals = new Env();
+    private Env env = globals;
+
+    public InterpreterVisitor(){
+        env.define(new Token(null, "clock", null, -1), new Clock());
+    }
+
+    public Env getGlobals(){
+        return globals;
+    }
 
     public void interpret(List<Stmt> program){
         try{
@@ -22,6 +34,18 @@ public class InterpreterVisitor implements Expr.Visitor<Object>, Stmt.Visitor<Vo
             }
         } catch (LoxRuntimeException e){
             Lox.runtimeError(e);
+        }
+    }
+
+    public void executeBlock(List<Stmt> body, Env env){
+        Env enclosing = this.env;
+        try {
+            this.env = env;
+            for(Stmt statement: body){
+                execute(statement);
+            }
+        } finally {
+            this.env = enclosing;
         }
     }
 
@@ -181,6 +205,18 @@ public class InterpreterVisitor implements Expr.Visitor<Object>, Stmt.Visitor<Vo
     }
 
     @Override
+    public Object visitCallExpr(Expr.Call expr) {
+        Object callee = evaluate(expr.calle);
+        List<Object> arguments = expr.args.stream().map(this::evaluate).collect(Collectors.toList());
+        if(!(callee instanceof LoxCallable))
+            throw new LoxRuntimeException(expr.paren, "Object {" + callee + "} is not callable. Only functions and classes are callable");
+        LoxCallable fun = (LoxCallable) callee;
+        if(arguments.size() != fun.getArity())
+            throw new LoxRuntimeException(expr.paren, "Expected " + fun.getArity() + " arguments, got " + arguments.size() + ": " + arguments + " instead");
+        return fun.call(this, arguments);
+    }
+
+    @Override
     public Void visitExpressionStmt(Stmt.Expression stmt) {
         evaluate(stmt.expression);
         return null;
@@ -205,17 +241,15 @@ public class InterpreterVisitor implements Expr.Visitor<Object>, Stmt.Visitor<Vo
     }
 
     @Override
-    public Void visitBlockStmt(Stmt.Block stmt) {
-        Env enclosing = this.env;
-        try {
-            this.env = new Env(env);
-            for(Stmt statement: stmt.statements){
-                execute(statement);
-            }
-        } finally {
-            this.env = enclosing;
-        }
+    public Void visitFunStmt(Stmt.Fun stmt) {
+        LoxFunction fun = new LoxFunction(stmt); // Convert to LoxCallable representation
+        env.define(stmt.name, fun); // Add to the env
+        return null;
+    }
 
+    @Override
+    public Void visitBlockStmt(Stmt.Block stmt) {
+        executeBlock(stmt.statements, new Env(this.env));
         return null;
     }
 
@@ -236,5 +270,11 @@ public class InterpreterVisitor implements Expr.Visitor<Object>, Stmt.Visitor<Vo
             execute(stmt.body);
         }
         return null;
+    }
+
+    @Override
+    public Void visitReturnStmt(Stmt.Return stmt) {
+        Object returnValue = stmt.value == null ? null: evaluate(stmt.value);
+        throw new FunctionReturn(returnValue);
     }
 }

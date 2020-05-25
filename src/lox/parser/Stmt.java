@@ -4,15 +4,48 @@ import java.util.List;
 
 public abstract class Stmt implements ASTNode{
     public interface Visitor<R>{
+        R visitVarStmt(Var stmt);
+        R visitFunStmt(Fun stmt);
         R visitExpressionStmt(Expression stmt);
         R visitPrintStmt(Print stmt);
-        R visitVarStmt(Var stmt);
         R visitBlockStmt(Block stmt);
         R visitIfStmt(If stmt);
         R visitWhileStmt(While stmt);
+        R visitReturnStmt(Return stmt);
     }
 
     public abstract <R> R accept(Visitor<R> visitor);
+
+    // Statement defining a variable
+    public static class Var extends Stmt {
+        Var(Token name,Expr init) {
+            this.name=name;
+            this.init=init;
+        }
+
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitVarStmt(this);
+        }
+        public final Token name;
+        public final Expr init;
+    }
+
+    public static class Fun extends Stmt {
+        Fun(Token name,List<Token> params,List<Stmt> body) {
+            this.name=name;
+            this.params=params;
+            this.body=body;
+        }
+
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitFunStmt(this);
+        }
+        public final Token name;
+        public final List<Token> params;
+        public final List<Stmt> body;
+    }
 
     public static class Expression extends Stmt {
         Expression(Expr expression) {
@@ -36,21 +69,6 @@ public abstract class Stmt implements ASTNode{
             return visitor.visitPrintStmt(this);
         }
         public final Expr expression;
-    }
-
-    // Statement defining a variable
-    public static class Var extends Stmt {
-        Var(Token name,Expr init) {
-            this.name=name;
-            this.init=init;
-        }
-
-        @Override
-        public <R> R accept(Visitor<R> visitor) {
-            return visitor.visitVarStmt(this);
-        }
-        public final Token name;
-        public final Expr init;
     }
 
     public static class Block extends Stmt {
@@ -93,5 +111,19 @@ public abstract class Stmt implements ASTNode{
         }
         public final Expr cond;
         public final Stmt body;
+    }
+
+    public static class Return extends Stmt {
+        Return(Token ret,Expr value) {
+            this.ret=ret;
+            this.value=value;
+        }
+
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitReturnStmt(this);
+        }
+        public final Token ret;
+        public final Expr value;
     }
 }
