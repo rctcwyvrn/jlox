@@ -260,10 +260,15 @@ public class InterpreterVisitor implements Expr.Visitor<Object>, Stmt.Visitor<Vo
 
     @Override
     public Void visitVarStmt(Stmt.Var stmt) {
+        Integer index = lookup.getDefinitionIndex(stmt.name);
+        Object value = null;
         if(stmt.init != null){
-            env.define(lookup.getDefinitionIndex(stmt.name), evaluate(stmt.init));
+            value = evaluate(stmt.init);
+        }
+        if(index != null){
+            env.define(lookup.getDefinitionIndex(stmt.name),value);
         } else {
-            env.define(lookup.getDefinitionIndex(stmt.name), null);
+            ((GlobalEnv) env).define(stmt.name, value);
         }
 
         return null;
@@ -272,7 +277,13 @@ public class InterpreterVisitor implements Expr.Visitor<Object>, Stmt.Visitor<Vo
     @Override
     public Void visitFunStmt(Stmt.Fun stmt) {
         LoxFunction fun = new LoxFunction(stmt, this.env); // Uses the env (all defined names) that are present when the function is defined
-        env.define(lookup.getDefinitionIndex(stmt.name), fun); // Add to the env
+        Integer index = lookup.getDefinitionIndex(stmt.name);
+        if(index != null){
+            env.define(lookup.getDefinitionIndex(stmt.name),fun);
+        } else {
+            ((GlobalEnv) env).define(stmt.name, fun);
+        }
+
         return null;
     }
 

@@ -82,7 +82,6 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
         if(scope.containsKey(name.getLexeme())){
             Lox.error(name, "Variable with this name has already been declared in this scope.");
         }
-        System.out.println("Declaring " + name);
 
         definitionIndicies.put(name, scope.size());
         scope.put(name.getLexeme(), new Variable(false, scope.size()));
@@ -90,7 +89,6 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 
     private void define(Token name){
         if(scopes.isEmpty()) return; //global name
-        System.out.println("Defining " + name);
         Map<String,Variable> scope = scopes.peek();
         scope.get(name.getLexeme()).defined = true;
     }
@@ -160,9 +158,9 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 
     @Override
     public Void visitVarExpr(Expr.Var expr) {
-        System.out.println(expr.name);
-        System.out.println(scopes.peek().get(expr.name.getLexeme()));
-        if(!scopes.isEmpty() && !scopes.peek().get(expr.name.getLexeme()).defined){
+        if(!scopes.isEmpty()
+                && scopes.peek().get(expr.name.getLexeme()) != null
+                && !scopes.peek().get(expr.name.getLexeme()).defined){
             Lox.error(expr.name, "Cannot read local variable in its own initializer");
         }
         resolveLocal(expr, expr.name);
@@ -204,7 +202,6 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 
     @Override
     public Void visitFunStmt(Stmt.Fun stmt) {
-        System.out.println("What " + stmt.name);
         declare(stmt.name);
         define(stmt.name);
         resolveFunction(stmt, FunctionType.FUNCTION);
