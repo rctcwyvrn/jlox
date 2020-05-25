@@ -7,13 +7,16 @@ import java.util.List;
 public class LoxFunction implements LoxCallable{
 
     private final Stmt.Fun declaration;
+    private final Env closure;
 
-    public LoxFunction(Stmt.Fun fun){
+    public LoxFunction(Stmt.Fun fun, Env closure){
         this.declaration = fun;
+        this.closure = closure;
     }
+
     @Override
     public Object call(InterpreterVisitor interpreter, List<Object> args) {
-        Env functionEnv = new Env(interpreter.getGlobals()); // Create a new env to define the parameter names to the argument values
+        Env functionEnv = new Env(closure); // Create a new env to define the parameter names to the argument values, parent is the env present during function def
         for(int i=0; i<declaration.params.size(); i++){
             functionEnv.define(declaration.params.get(i), args.get(i));
         }

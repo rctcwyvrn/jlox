@@ -9,18 +9,28 @@ import lox.parser.Token;
 import lox.parser.TokenType;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
  * Tree walk interpreter using the Visitor pattern
  */
 public class InterpreterVisitor implements Expr.Visitor<Object>, Stmt.Visitor<Void>{
-    private final Env globals = new Env();
+    private final GlobalEnv globals = new GlobalEnv();
     private Env env = globals;
+    private Map<Expr, Integer> locals = new HashMap<>();
+    private boolean isREPL = true;
 
     public InterpreterVisitor(){
         env.define(new Token(null, "clock", null, -1), new Clock());
+    }
+
+    public InterpreterVisitor(Map<Expr, Integer> resolutions){
+        this();
+        this.locals = resolutions;
+        this.isREPL = false;
     }
 
     public Env getGlobals(){
@@ -91,6 +101,17 @@ public class InterpreterVisitor implements Expr.Visitor<Object>, Stmt.Visitor<Vo
     private void checkNumberType(Token operator, Object operand){
         if(!(operand instanceof Double)){
             throw new LoxRuntimeException(operator, "Operand must be a number. Found: " + operand);
+        }
+    }
+
+    private Object lookUpVariable(Token name, Expr expr){
+        Integer dist = locals.get(expr);
+        if(dist != null){
+            return env.getAt(dist, name.getLexeme());
+//        } else if(isREPL){
+//            return env.get(name);
+        } else {
+            return globals.get(name);
         }
     }
 
@@ -176,13 +197,20 @@ public class InterpreterVisitor implements Expr.Visitor<Object>, Stmt.Visitor<Vo
 
     @Override
     public Object visitVarExpr(Expr.Var expr) {
-        return env.get(expr.name);
+        return lookUpVariable(expr.name, expr);
     }
 
     @Override
     public Object visitAssignExpr(Expr.Assign expr) {
         Object val = evaluate(expr.value);
-        env.update(expr.name, val);
+        Integer dist = locals.get(expr);
+        if(dist != null){
+            env.updateAt(dist, expr.name, val);
+//        } else if(isREPL) {
+//            env.update(expr.name, val);
+        } else {
+            globals.update(expr.name, val);
+        }
         return val;
     }
 
@@ -242,7 +270,7 @@ public class InterpreterVisitor implements Expr.Visitor<Object>, Stmt.Visitor<Vo
 
     @Override
     public Void visitFunStmt(Stmt.Fun stmt) {
-        LoxFunction fun = new LoxFunction(stmt); // Convert to LoxCallable representation
+        LoxFunction fun = new LoxFunction(stmt, this.env); // Uses the env (all defined names) that are present when the function is defined
         env.define(stmt.name, fun); // Add to the env
         return null;
     }

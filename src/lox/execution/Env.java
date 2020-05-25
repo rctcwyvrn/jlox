@@ -7,7 +7,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class Env {
-    private final Map<String, Object> values = new HashMap<>();
+    protected final Map<String, Object> values = new HashMap<>();
     private final Env enclosing;
 
     public Env(){
@@ -25,28 +25,19 @@ public class Env {
         values.put(name.getLexeme(), value);
     }
 
-    public void update(Token name, Object value){
-
-        if(!values.containsKey(name.getLexeme())){
-            if(enclosing == null){
-                throw new LoxRuntimeException(name, "Variable '" + name.getLexeme() + "' does not exist.");
-            } else {
-                enclosing.update(name, value);
-            }
-        }else {
-            values.put(name.getLexeme(), value);
+    private Env ancestor(int distance){
+        Env env = this;
+        for(int i = 0; i < distance; i++){
+            env = env.enclosing;
         }
+        return env;
     }
 
-    public Object get(Token name){
-        if(!values.containsKey(name.getLexeme())){
-            if(enclosing == null) {
-                throw new LoxRuntimeException(name, "Variable '" + name.getLexeme() + "' undefined in scope.");
-            } else {
-                return enclosing.get(name);
-            }
-        } else {
-            return values.get(name.getLexeme());
-        }
+    public Object getAt(int dist, String name){
+        return ancestor(dist).values.get(name);
+    }
+
+    public void updateAt(int dist, Token name, Object val){
+        ancestor(dist).values.put(name.getLexeme(), val);
     }
 }

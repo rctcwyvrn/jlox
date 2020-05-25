@@ -4,6 +4,7 @@ import lox.exception.LoxRuntimeException;
 import lox.exception.ParseException;
 import lox.execution.InterpreterVisitor;
 import lox.parser.*;
+import lox.semantic.Resolver;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -12,12 +13,12 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Map;
 
 public class Lox {
     private static boolean hadError = false;
     private static boolean hadRuntimeError = false;
     private static boolean ignoreErrors = false;
-    private static final InterpreterVisitor interpreter = new InterpreterVisitor();
 
     public static void main(String[] args) throws IOException {
         if(args.length >= 2){
@@ -37,11 +38,17 @@ public class Lox {
 
     private static void run(String script) {
         List<Token> tokens = Lexer.parseTokens(script);
-        if(hadError) return;
+        if(hadError) return; // Stop if we have lexing errors
 
         Parser parser = new Parser(tokens);
         List<Stmt> program = parser.parse();
-        if(hadError) return;
+        if(hadError) return; // Stop if we have parsing errors
+
+        Resolver resolver = new Resolver();
+        Map<Expr, Integer> resolutions = resolver.performResolve(program);
+        if(hadError) return; // Stop if we have resolution errors
+
+        InterpreterVisitor interpreter = new InterpreterVisitor(resolutions);
         interpreter.interpret(program);
     }
 
@@ -50,7 +57,7 @@ public class Lox {
 
         InputStreamReader in = new InputStreamReader(System.in);
         BufferedReader reader = new BufferedReader(in);
-
+        InterpreterVisitor interpreter = new InterpreterVisitor();
         while(true){
             try {
                 System.out.print("> ");
@@ -106,14 +113,14 @@ public class Lox {
         }
     }
 
+    private static void report(int line, String where, String message){
+        if(!ignoreErrors) System.err.println("[line: " + line + "] | Error " + where + ": " + message + "\n");
+        hadError = true;
+    }
+
     public static void runtimeError(LoxRuntimeException error){
         System.err.println("Lox runtime exception: " + error.getMessage() +
                 "\n\tat [line " + error.getToken().getLine() + "]\n");
         hadRuntimeError = true;
-    }
-
-    private static void report(int line, String where, String message){
-        if(!ignoreErrors) System.err.println("[line: " + line + "] | Error " + where + ": " + message + "\n");
-        hadError = true;
     }
 }

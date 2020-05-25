@@ -1,0 +1,7 @@
+fun test(n) {
+  print("Ignoring the parameter");
+  var a = 10;
+}
+
+test(1);
+return;
