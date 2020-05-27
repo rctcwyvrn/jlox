@@ -11,10 +11,12 @@ import java.util.List;
 /*
     program     → declaration* EOF ;
 
-    declaration → varDecl
-                | funDecl
-                | statement ;
+    declaration → classDecl
+            | funDecl
+            | varDecl
+            | statement ;
 
+    classDecl   → "class" IDENTIFIER "{" function* "}" ;
     varDecl → "var" IDENTIFIER ( "=" expression )? ";" ;
 
     funDecl  → "fun" function ;
@@ -40,8 +42,8 @@ import java.util.List;
     returnStmt → "return" expression? ";" ;
 
     expression → assignment ;
-    assignment → IDENTIFIER "=" assignment
-               | logic_or ;
+    assignment → ( call "." )? IDENTIFIER "=" assignment
+           | logic_or;
     logic_or   → logic_and ("or" logic_and)* ;
     logic_and  → equality ("and" equality)* ;
     equality       → comparison ( ( "!=" | "==" ) comparison )* ;
@@ -49,7 +51,7 @@ import java.util.List;
     addition       → multiplication ( ( "-" | "+" ) multiplication )* ;
     multiplication → unary ( ( "/" | "*" ) unary )* ;
     unary → ( "!" | "-" ) unary | call ;
-    call  → primary ( "(" arguments? ")" )* ;
+    call → primary ( "(" arguments? ")" | "." IDENTIFIER )* ; // Function call or instance property access (get expressions)
     arguments → expression ( "," expression )* ;
     primary → "true" | "false" | "nil"
         | NUMBER | STRING
@@ -161,6 +163,8 @@ public class Parser {
         try{
             if(match(TokenType.VAR)) {
                 return varDeclaration();
+            } else if(match(TokenType.CLASS)){
+                return classDeclaration();
             } else if(match(TokenType.FUN)){
                 return function("function");
             } else {
@@ -183,7 +187,18 @@ public class Parser {
         return new Stmt.Var(name, init);
     }
 
-    private Stmt function(String kind){
+    private Stmt classDeclaration(){
+        Token name = consume(TokenType.IDENTIFIER, "Expected class name after keyword 'class'");
+        consume(TokenType.LEFT_BRACE, "Expected '{' before class body");
+        List<Stmt.Fun> methods = new ArrayList<>();
+        while(!check(TokenType.RIGHT_BRACE) && !isAtEnd()){
+            methods.add(function("method"));
+        }
+        consume(TokenType.RIGHT_BRACE, "Expected '}' after class body");
+        return new Stmt.Class(name, methods);
+    }
+
+    private Stmt.Fun function(String kind){
         Token name = consume(TokenType.IDENTIFIER, "Expected " + kind + " name.");
         consume(TokenType.LEFT_PAREN, "Expected ( after " + kind + " name");
         List<Token> params = new ArrayList<>();
@@ -334,13 +349,18 @@ public class Parser {
     }
 
     private Expr assignmentRight(Expr left){
-        if(!(left instanceof Expr.Var)){
+        if(left instanceof Expr.Var){
+            Token name = ((Expr.Var) left).name;
+            Expr right = assignment();
+            return new Expr.Assign(name, right);
+        } else if(left instanceof Expr.Get){
+            Expr.Get get = (Expr.Get) left; // All of the dots get matched into the get, we want to take the last get's name and turn it into the set
+            Expr right = assignment();
+            return new Expr.Set(get.target, get.name, right); // Passing in the target strips off the last get
+        } else {
             error(previous(), "Invalid assignment target."); // We don't throw this exception because we don't need to resynchronize
             return left; // just return the left-hand expression so we can keep going
         }
-        Token name = ((Expr.Var) left).name;
-        Expr right = assignment();
-        return new Expr.Assign(name, right);
     }
 
     private Expr or(){
@@ -418,30 +438,17 @@ public class Parser {
         }
     }
 
-    // My implementation, which will probably be too ugly/need to be rewritten later for objects anyway
-    // so I'm just gonna use the book implementation
-//    private Expr call(){
-//        Expr callee = primary();
-//        if(match(TokenType.LEFT_PAREN)){
-//            Token paren = previous();
-//            List<Expr> arguments = new ArrayList<>();
-//            arguments.add(expression());
-//            while(match(TokenType.COMMA)){
-//                arguments.add(expression());
-//            }
-//            consume(TokenType.RIGHT_PAREN, "Expected ')' after function arguments);
-//            return new Expr.Call(callee, paren, arguments);
-//        } else {
-//            return callee;
-//        }
-//    }
-
+    // Function calls and property gets chained together
+    // eg: thing()('stuff')().foo.bar()();
     private Expr call(){
         Expr expr = primary();
 
         while(true){
-            if(match(TokenType.LEFT_PAREN)){
+            if(match(TokenType.LEFT_PAREN)) {
                 expr = finishCall(expr);
+            } else if(match(TokenType.DOT)) {
+                Token name = consume(TokenType.IDENTIFIER, "Expected field name after '.'");
+                expr = new Expr.Get(expr, name);
             } else {
                 break;
             }

@@ -5,6 +5,7 @@ import java.util.List;
 public abstract class Stmt implements ASTNode{
     public interface Visitor<R>{
         R visitVarStmt(Var stmt);
+        R visitClassStmt(Class stmt);
         R visitFunStmt(Fun stmt);
         R visitExpressionStmt(Expression stmt);
         R visitPrintStmt(Print stmt);
@@ -29,6 +30,20 @@ public abstract class Stmt implements ASTNode{
         }
         public final Token name;
         public final Expr init;
+    }
+
+    public static class Class extends Stmt {
+        Class(Token name,List<Stmt.Fun> methods) {
+            this.name=name;
+            this.methods=methods;
+        }
+
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitClassStmt(this);
+        }
+        public final Token name;
+        public final List<Stmt.Fun> methods;
     }
 
     public static class Fun extends Stmt {

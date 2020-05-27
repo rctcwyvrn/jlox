@@ -12,6 +12,8 @@ public abstract class Expr implements ASTNode{
         R visitAssignExpr(Assign expr);
         R visitLogicalBinaryExpr(LogicalBinary expr);
         R visitCallExpr(Call expr);
+        R visitGetExpr(Get expr);
+        R visitSetExpr(Set expr);
     }
 
     public abstract <R> R accept(Visitor<R> visitor);
@@ -126,5 +128,35 @@ public abstract class Expr implements ASTNode{
         public final Expr calle;
         public final Token paren;
         public final List<Expr> args;
+    }
+
+    public static class Get extends Expr {
+        Get(Expr target,Token name) {
+            this.target=target;
+            this.name=name;
+        }
+
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitGetExpr(this);
+        }
+        public final Expr target;
+        public final Token name;
+    }
+
+    public static class Set extends Expr {
+        Set(Expr target,Token name,Expr val) {
+            this.target=target;
+            this.name=name;
+            this.val=val;
+        }
+
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitSetExpr(this);
+        }
+        public final Expr target;
+        public final Token name;
+        public final Expr val;
     }
 }

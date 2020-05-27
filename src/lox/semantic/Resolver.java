@@ -146,12 +146,36 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void>{
     }
 
     @Override
+    public Void visitGetExpr(Expr.Get expr) {
+        resolve(expr.target);
+        return null;
+    }
+
+    @Override
+    public Void visitSetExpr(Expr.Set expr) {
+        resolve(expr.target); // Resolve the target first to match the interpreter
+        resolve(expr.val);
+        return null;
+    }
+
+    @Override
     public Void visitVarStmt(Stmt.Var stmt) {
         declare(stmt.name);
         if(stmt.init != null){
             resolve(stmt.init);
         }
         define(stmt.name);
+        return null;
+    }
+
+    @Override
+    public Void visitClassStmt(Stmt.Class stmt) {
+        declare(stmt.name);
+        define(stmt.name);
+
+        for(Stmt.Fun method: stmt.methods){
+            resolveFunction(method, FunctionType.METHOD);
+        }
         return null;
     }
 

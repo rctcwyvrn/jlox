@@ -6,11 +6,14 @@ expressions = [
     "Unary,Token:operator,Expr:right",
     "Var,Token:name", #Expression that returns the value stored in the variable with that name
     "LogicalBinary,Expr:left,Token:operator,Expr:right",
-    "Call,Expr:calle,Token:paren,List<Expr>:args"
+    "Call,Expr:calle,Token:paren,List<Expr>:args",
+    "Get,Expr:target,Token:name",
+    "Set,Expr:target,Token:name,Expr:val"
 ]
 
 statements = [
     "Var,Token:name,Expr:init",
+    "Class,Token:name,List<Stmt.Fun>:methods",
     "Fun,Token:name,List<Token>:params,List<Stmt>:body",
     "Expression,Expr:expression",
     "Print,Expr:expression",

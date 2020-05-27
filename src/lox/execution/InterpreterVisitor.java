@@ -245,6 +245,26 @@ public class InterpreterVisitor implements Expr.Visitor<Object>, Stmt.Visitor<Vo
     }
 
     @Override
+    public Object visitGetExpr(Expr.Get expr) {
+        Object target = evaluate(expr.target);
+        if(!(target instanceof LoxInstance)){
+            throw new LoxRuntimeException(expr.name, "Cannot access property on non-instance object: '" + target +"'.");
+        }
+        return ((LoxInstance) target).get(expr.name);
+    }
+
+    @Override
+    public Object visitSetExpr(Expr.Set expr) {
+        Object target = evaluate(expr.target);
+        if(!(target instanceof LoxInstance)){
+            throw new LoxRuntimeException(expr.name, "Cannot set property on non-instance object: '" + target +"'.");
+        }
+        Object value = evaluate(expr.val);
+        ((LoxInstance) target).set(expr.name, value);
+        return null;
+    }
+
+    @Override
     public Void visitExpressionStmt(Stmt.Expression stmt) {
         evaluate(stmt.expression);
         return null;
@@ -265,6 +285,18 @@ public class InterpreterVisitor implements Expr.Visitor<Object>, Stmt.Visitor<Vo
             env.define(stmt.name, null);
         }
 
+        return null;
+    }
+
+    @Override
+    public Void visitClassStmt(Stmt.Class stmt) {
+        Map<String, LoxFunction> methods = new HashMap<>();
+        for(Stmt.Fun method: stmt.methods){
+            LoxFunction fun = new LoxFunction(method, env);
+            methods.put(method.name.getLexeme(), fun);
+        }
+        LoxClass klass = new LoxClass(stmt.name.getLexeme(), methods);
+        env.define(stmt.name, klass);
         return null;
     }
 
