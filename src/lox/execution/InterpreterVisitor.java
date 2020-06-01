@@ -265,6 +265,25 @@ public class InterpreterVisitor implements Expr.Visitor<Object>, Stmt.Visitor<Vo
     }
 
     @Override
+    public Object visitThisExpr(Expr.This expr) {
+        return lookUpVariable(expr.keyword, expr);
+    }
+
+    @Override
+    public Object visitSuperExpr(Expr.Super expr) {
+        int dist = locals.get(expr);
+        LoxClass superclass = (LoxClass) env.getAt(dist, "super");
+        LoxInstance instance = (LoxInstance) env.getAt(dist - 1, "this"); // ?????????? what the FUCK
+
+        if(!superclass.containsMethod(expr.method.getLexeme())){
+            throw new LoxRuntimeException(expr.method, "Undefined property '" + expr.method.getLexeme() + "'.");
+        } else {
+            LoxFunction method = superclass.getMethod(expr.method.getLexeme());
+            return method.bind(instance);
+        }
+    }
+
+    @Override
     public Void visitExpressionStmt(Stmt.Expression stmt) {
         evaluate(stmt.expression);
         return null;
@@ -290,19 +309,44 @@ public class InterpreterVisitor implements Expr.Visitor<Object>, Stmt.Visitor<Vo
 
     @Override
     public Void visitClassStmt(Stmt.Class stmt) {
+        Object superclass = null;
+        if(stmt.superclass != null){
+            superclass = evaluate(stmt.superclass);
+            if(!(superclass instanceof LoxClass)){
+                throw new LoxRuntimeException(stmt.superclass.name, "Cannot inherit from a non-class object: '" + superclass + "'.");
+            }
+        }
+
+        env.define(stmt.name, null);
+
+        Env enclosing = null;
+        if(stmt.superclass != null){
+            enclosing = env;
+            env = new Env(env); // Create a new env so the method closures will all have the superclass defined
+            env.define("super", superclass);
+        }
+
         Map<String, LoxFunction> methods = new HashMap<>();
         for(Stmt.Fun method: stmt.methods){
-            LoxFunction fun = new LoxFunction(method, env);
+            LoxFunction fun = new LoxFunction(method, env, method.name.getLexeme().equals("init"));
             methods.put(method.name.getLexeme(), fun);
         }
-        LoxClass klass = new LoxClass(stmt.name.getLexeme(), methods);
+
+        LoxClass klass = new LoxClass(stmt.name.getLexeme(), (LoxClass) superclass, methods);
+
+        if(stmt.superclass != null) {
+            // not in the book, but I'm pretty sure this is necessary, or else each class definition
+            // adds another env to the stack
+            env = enclosing;
+        }
+
         env.define(stmt.name, klass);
         return null;
     }
 
     @Override
     public Void visitFunStmt(Stmt.Fun stmt) {
-        LoxFunction fun = new LoxFunction(stmt, this.env); // Uses the env (all defined names) that are present when the function is defined
+        LoxFunction fun = new LoxFunction(stmt, this.env, false); // Uses the env (all defined names) that are present when the function is defined
         env.define(stmt.name, fun); // Add to the env
         return null;
     }

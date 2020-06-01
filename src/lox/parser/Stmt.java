@@ -33,8 +33,9 @@ public abstract class Stmt implements ASTNode{
     }
 
     public static class Class extends Stmt {
-        Class(Token name,List<Stmt.Fun> methods) {
+        Class(Token name,Expr.Var superclass,List<Stmt.Fun> methods) {
             this.name=name;
+            this.superclass=superclass;
             this.methods=methods;
         }
 
@@ -43,6 +44,7 @@ public abstract class Stmt implements ASTNode{
             return visitor.visitClassStmt(this);
         }
         public final Token name;
+        public final Expr.Var superclass;
         public final List<Stmt.Fun> methods;
     }
 

@@ -14,7 +14,10 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void>{
     // Mirror of the scope stack, it contains a list of local variables used instead
     private final Stack<List<String>> variablesUsed = new Stack<>();
     private final Map<Expr,Integer> resolutions = new HashMap<>();
+
+    // Current walk status, are we in a function? In a class?
     private FunctionType currentFunction =  FunctionType.NONE;
+    private ClassType currentClass = ClassType.NONE;
 
     public Map<Expr,Integer> performResolve(List<Stmt> program){
         resolve(program);
@@ -30,8 +33,9 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void>{
         Map<String, Boolean> allDefined = scopes.pop();
         List<String> used = variablesUsed.pop();
         for(String defined: allDefined.keySet()){
-            if(!used.contains(defined)){
-                Lox.error(-1, "Variable " + defined + " defined but not used"); // I could change a whole bunch of code to make this have a correct line number but honestly I can't be bothered
+            if(!used.contains(defined) && !defined.equals("this")){
+                Lox.error(-1, "Variable " + defined + " defined but not used");
+                // I could change a whole bunch of code to make this have a correct line number but honestly I can't be bothered
             }
         }
     }
@@ -159,6 +163,28 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void>{
     }
 
     @Override
+    public Void visitThisExpr(Expr.This expr) {
+        if(currentClass == ClassType.NONE){
+            Lox.error(expr.keyword, "Invalid 'this'. Cannot use this outside of a class");
+        } else {
+            resolveLocal(expr, expr.keyword);
+        }
+        return null;
+    }
+
+    @Override
+    public Void visitSuperExpr(Expr.Super expr) {
+        if(currentClass == ClassType.NONE){
+            Lox.error(expr.keyword, "Invalid 'super'. Cannot use super outside of a class");
+        } else if(currentClass == ClassType.CLASS){
+            Lox.error(expr.keyword, "Invalid 'super'. Cannot use super in a class with no superclass");
+        } else {
+            resolveLocal(expr, expr.keyword);
+        }
+        return null;
+    }
+
+    @Override
     public Void visitVarStmt(Stmt.Var stmt) {
         declare(stmt.name);
         if(stmt.init != null){
@@ -170,12 +196,38 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void>{
 
     @Override
     public Void visitClassStmt(Stmt.Class stmt) {
+        ClassType enclosingClass = currentClass;
+        currentClass = ClassType.CLASS; // Set the currentClass so when we resolve the functions we know that they're methods (ie 'this' is defined)
         declare(stmt.name);
         define(stmt.name);
 
-        for(Stmt.Fun method: stmt.methods){
-            resolveFunction(method, FunctionType.METHOD);
+        if(stmt.superclass != null){
+            currentClass = ClassType.SUBCLASS; // So we can resolve 'super'
+            if(stmt.name.getLexeme().equals(stmt.superclass.name.getLexeme())){
+                Lox.error(stmt.superclass.name, "A class cannot inherit from itself.");
+            }
+            resolve(stmt.superclass);
+            beginScope();
+            scopes.peek().put("super",true);
         }
+
+        beginScope();
+        scopes.peek().put("this", true); // can't use define/declare cuz we don't have a token, so we just throw it in
+        for(Stmt.Fun method: stmt.methods){
+            if(method.name.getLexeme().equals("init")) {
+                resolveFunction(method, FunctionType.INITIALIZER);
+            } else {
+                resolveFunction(method, FunctionType.METHOD);
+            }
+        }
+
+        endScope(); // end the scope where we defined 'this'
+
+        if(stmt.superclass != null) {
+            endScope(); // end the scope where we defined 'super'
+        }
+
+        currentClass = enclosingClass;
         return null;
     }
 
@@ -229,7 +281,11 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void>{
         if(currentFunction == FunctionType.NONE){
             Lox.error(stmt.ret, "Cannot return from top-level scope.");
         }
+
         if(stmt.value != null){
+            if(currentFunction == FunctionType.INITIALIZER){
+                Lox.error(stmt.ret, "Cannot return a value from initializer.");
+            }
             resolve(stmt.value);
         }
         return null;

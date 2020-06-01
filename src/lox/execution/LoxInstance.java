@@ -17,7 +17,7 @@ public class LoxInstance {
         if (fields.containsKey(name.getLexeme())){
             return fields.get(name.getLexeme());
         } else if(klass.containsMethod(name.getLexeme())){
-            return klass.getMethod(name.getLexeme());
+            return klass.getMethod(name.getLexeme()).bind(this);  // Return a new LoxFunction object with 'this' binded
         }
         throw new LoxRuntimeException(name, "Instance does not contain property '" + name.getLexeme() + "'");
     }
@@ -29,7 +29,8 @@ public class LoxInstance {
     @Override
     public String toString() {
         return "LoxInstance{" +
-                "instanceof=" + klass.getName() +
+                "instanceof='" + klass.getName() + "', " +
+                "fields=" + fields.entrySet() +
                 '}';
     }
 }

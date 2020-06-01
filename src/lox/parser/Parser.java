@@ -16,7 +16,8 @@ import java.util.List;
             | varDecl
             | statement ;
 
-    classDecl   → "class" IDENTIFIER "{" function* "}" ;
+    classDecl → "class" IDENTIFIER ( "<" IDENTIFIER )?
+            "{" function* "}" ;
     varDecl → "var" IDENTIFIER ( "=" expression )? ";" ;
 
     funDecl  → "fun" function ;
@@ -53,10 +54,9 @@ import java.util.List;
     unary → ( "!" | "-" ) unary | call ;
     call → primary ( "(" arguments? ")" | "." IDENTIFIER )* ; // Function call or instance property access (get expressions)
     arguments → expression ( "," expression )* ;
-    primary → "true" | "false" | "nil"
-        | NUMBER | STRING
-        | "(" expression ")"
-        | IDENTIFIER ;
+    primary → "true" | "false" | "nil" | "this"
+        | NUMBER | STRING | IDENTIFIER | "(" expression ")"
+        | "super" "." IDENTIFIER ;
  */
 
 /**
@@ -189,13 +189,20 @@ public class Parser {
 
     private Stmt classDeclaration(){
         Token name = consume(TokenType.IDENTIFIER, "Expected class name after keyword 'class'");
+
+        Expr.Var superclass = null;
+        if(match(TokenType.LESS)){
+            consume(TokenType.IDENTIFIER, "Expected superclass name after '>'.");
+            superclass = new Expr.Var(previous());
+        }
+
         consume(TokenType.LEFT_BRACE, "Expected '{' before class body");
         List<Stmt.Fun> methods = new ArrayList<>();
         while(!check(TokenType.RIGHT_BRACE) && !isAtEnd()){
             methods.add(function("method"));
         }
         consume(TokenType.RIGHT_BRACE, "Expected '}' after class body");
-        return new Stmt.Class(name, methods);
+        return new Stmt.Class(name, superclass, methods);
     }
 
     private Stmt.Fun function(String kind){
@@ -484,10 +491,17 @@ public class Parser {
             Expr expr = expression();
             consume(TokenType.RIGHT_PAREN, "Missing ')' after expression");
             return new Expr.Grouping(expr);
+        } else if(match(TokenType.THIS)) {
+            return new Expr.This(previous());
+        } else if(match(TokenType.SUPER)) {
+            Token keyword = previous();
+            consume(TokenType.DOT, "Expected '.' before superclass method name");
+            Token method = consume(TokenType.IDENTIFIER, "Expected method name after 'super'");
+            return new Expr.Super(keyword, method);
         } else if(match(TokenType.IDENTIFIER)){
             return new Expr.Var(previous());
         } else {
-            throw error(peek(), "Unrecognized value");
+            throw error(peek(), "Unrecognized value, variable not defined");
         }
     }
 }

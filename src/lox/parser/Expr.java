@@ -14,6 +14,8 @@ public abstract class Expr implements ASTNode{
         R visitCallExpr(Call expr);
         R visitGetExpr(Get expr);
         R visitSetExpr(Set expr);
+        R visitThisExpr(This expr);
+        R visitSuperExpr(Super expr);
     }
 
     public abstract <R> R accept(Visitor<R> visitor);
@@ -158,5 +160,31 @@ public abstract class Expr implements ASTNode{
         public final Expr target;
         public final Token name;
         public final Expr val;
+    }
+
+    public static class This extends Expr {
+        This(Token keyword) {
+            this.keyword=keyword;
+        }
+
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitThisExpr(this);
+        }
+        public final Token keyword;
+    }
+
+    public static class Super extends Expr {
+        Super(Token keyword,Token method) {
+            this.keyword=keyword;
+            this.method=method;
+        }
+
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitSuperExpr(this);
+        }
+        public final Token keyword;
+        public final Token method;
     }
 }

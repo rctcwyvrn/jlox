@@ -19,10 +19,11 @@ public class Env {
     }
 
     public void define(Token name, Object value){
-        if(values.containsKey(name.getLexeme())){
-            throw new LoxRuntimeException(name, "Variable '" + name.getLexeme() + "' already defined.");
-        }
         values.put(name.getLexeme(), value);
+    }
+
+    public void define(String name, Object value){
+        values.put(name, value);
     }
 
     private Env ancestor(int distance){

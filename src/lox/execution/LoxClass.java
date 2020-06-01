@@ -9,8 +9,10 @@ import java.util.Map;
 public class LoxClass implements LoxCallable{
     private final String name;
     private final Map<String, LoxFunction> methods;
+    private final LoxClass superclass;
 
-    public LoxClass(String name, Map<String, LoxFunction> methods){
+    public LoxClass(String name, LoxClass superclass, Map<String, LoxFunction> methods){
+        this.superclass = superclass;
         this.name = name;
         this.methods = methods;
     }
@@ -18,20 +20,38 @@ public class LoxClass implements LoxCallable{
     @Override
     public Object call(InterpreterVisitor interpreter, List<Object> args) {
         LoxInstance instance = new LoxInstance(this);
+        // Run constructor (init())
+        if(containsMethod("init")){
+            LoxFunction initializer = getMethod("init");
+            initializer.bind(instance).call(interpreter, args); // Bind to be able to update the instance object
+            // The return value is the LoxInstance so we just discard it
+        }
         return instance;
     }
 
     @Override
     public int getArity() {
-        return 0; // TODO: Constructors
+        if(containsMethod("init")){
+            return getMethod("init").getArity();
+        } else {
+            return 0;
+        }
     }
 
     public boolean containsMethod(String name){
-        return methods.keySet().contains(name);
+        if(superclass != null){
+            return methods.containsKey(name) || superclass.containsMethod(name);
+        } else {
+            return methods.containsKey(name);
+        }
     }
 
     public LoxFunction getMethod(String name){
-        return methods.get(name);
+        if(!methods.containsKey(name) && superclass != null){ // Check first to see if the method is overridden
+            return superclass.getMethod(name);
+        } else {
+            return methods.get(name); // could we have just binded super to this.superclass right here and be done with it?
+        }
     }
 
     public String getName(){

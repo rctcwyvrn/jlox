@@ -8,12 +8,14 @@ expressions = [
     "LogicalBinary,Expr:left,Token:operator,Expr:right",
     "Call,Expr:calle,Token:paren,List<Expr>:args",
     "Get,Expr:target,Token:name",
-    "Set,Expr:target,Token:name,Expr:val"
+    "Set,Expr:target,Token:name,Expr:val",
+    "This,Token:keyword",
+    "Super,Token:keyword,Token:method"
 ]
 
 statements = [
     "Var,Token:name,Expr:init",
-    "Class,Token:name,List<Stmt.Fun>:methods",
+    "Class,Token:name,Expr.Var:superclass,List<Stmt.Fun>:methods",
     "Fun,Token:name,List<Token>:params,List<Stmt>:body",
     "Expression,Expr:expression",
     "Print,Expr:expression",
